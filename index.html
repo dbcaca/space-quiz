@@ -355,6 +355,28 @@
       line-height: 1;
     }
 
+    .score-label {
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: .9rem;
+      font-weight: 700;
+    }
+
+    .best-score {
+      margin: 0 0 12px;
+      color: var(--mint);
+      font-size: 1rem;
+      font-weight: 750;
+    }
+
+    .record-status {
+      min-height: 1.5em;
+      margin: 0 auto 18px;
+      color: var(--muted);
+      font-size: .88rem;
+      line-height: 1.5;
+    }
+
     .result-copy {
       margin: 0 auto 28px;
       color: var(--muted);
@@ -448,7 +470,10 @@
         <div id="result-icon" class="result-icon" aria-hidden="true">🏆</div>
         <p class="eyebrow">MISSION COMPLETE</p>
         <h2 id="result-title">탐험 완료!</h2>
+        <p class="score-label">이번 점수</p>
         <p id="result-score" class="result-score" aria-label="최종 점수"></p>
+        <p id="best-score" class="best-score"></p>
+        <p id="record-status" class="record-status" role="status" aria-live="polite"></p>
         <p id="result-copy" class="result-copy"></p>
         <button id="restart-button" class="primary-button" type="button">다시 탐험하기 <span aria-hidden="true">↻</span></button>
       </section>
@@ -531,9 +556,44 @@
     const answers = document.querySelector("#answers");
     const feedback = document.querySelector("#feedback");
     const nextButton = document.querySelector("#next-button");
+    const bestScoreKey = "spaceQuizBestScore";
     let questionIndex = 0;
     let score = 0;
     let answered = false;
+
+    function readBestScore() {
+      try {
+        const savedScore = window.localStorage.getItem(bestScoreKey);
+        if (savedScore === null) return { available: true, score: null };
+
+        const parsedScore = Number(savedScore);
+        if (!Number.isInteger(parsedScore) || parsedScore < 0 || parsedScore > questions.length) {
+          return { available: true, score: null };
+        }
+        return { available: true, score: parsedScore };
+      } catch {
+        return { available: false, score: null };
+      }
+    }
+
+    function saveBestScore(currentScore) {
+      const record = readBestScore();
+      let bestScore = record.score;
+      let statusMessage = "";
+
+      if (!record.available) {
+        statusMessage = "브라우저 저장소를 읽을 수 없어 최고 기록을 확인할 수 없어요.";
+      } else if (bestScore === null || currentScore > bestScore) {
+        try {
+          window.localStorage.setItem(bestScoreKey, String(currentScore));
+          bestScore = currentScore;
+        } catch {
+          statusMessage = "브라우저 저장소를 사용할 수 없어 최고 기록을 저장하지 못했어요.";
+        }
+      }
+
+      return { bestScore, statusMessage };
+    }
 
     function startQuiz() {
       questionIndex = 0;
@@ -598,6 +658,11 @@
       quiz.classList.add("hidden");
       result.classList.remove("hidden");
       document.querySelector("#result-score").textContent = `${score} / ${questions.length}`;
+      const record = saveBestScore(score);
+      document.querySelector("#best-score").textContent = record.bestScore === null
+        ? "이 기기의 최고 점수: 확인할 수 없음"
+        : `이 기기의 최고 점수: ${record.bestScore} / ${questions.length}`;
+      document.querySelector("#record-status").textContent = record.statusMessage;
       let message;
       let icon;
       if (score === questions.length) {
